@@ -26,7 +26,7 @@ import dotenv
 from fastmcp.server.auth.providers.google import GoogleProvider
 from fastmcp.server.auth.providers.google import GoogleTokenVerifier
 from starlette.requests import Request
-from starlette.responses import StreamingResponse
+from starlette.responses import Response, StreamingResponse
 
 
 dotenv.load_dotenv()
@@ -66,6 +66,27 @@ async def handle_sse_post(request: Request) -> StreamingResponse:
       headers={
           "Cache-Control": "no-cache",
           "Connection": "keep-alive",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type, mcp-session-id, mcp-protocol-version",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Expose-Headers": "mcp-session-id",
+          "Access-Control-Max-Age": "86400",
+      },
+  )
+
+
+# Add OPTIONS handler for CORS preflight requests
+@mcp_server.custom_route("/sse", methods=["OPTIONS"])
+async def handle_sse_options() -> Response:
+  """Handle CORS preflight requests."""
+  return Response(
+      status_code=200,
+      headers={
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "Content-Type, mcp-session-id, mcp-protocol-version",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Expose-Headers": "mcp-session-id",
+          "Access-Control-Max-Age": "86400",
       },
   )
 
