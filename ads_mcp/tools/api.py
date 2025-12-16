@@ -37,7 +37,8 @@ def get_ads_client() -> GoogleAdsClient:
   """Gets a GoogleAdsClient instance.
 
   Looks for an access token from the environment or loads credentials from
-  a YAML file.
+  a YAML file. Can also create credentials file from environment variables
+  if GOOGLE_ADS_YAML env var is set (useful for cloud deployments).
 
   Returns:
       A GoogleAdsClient instance.
@@ -53,11 +54,22 @@ def get_ads_client() -> GoogleAdsClient:
 
   default_path = f"{ROOT_DIR}/google-ads.yaml"
   credentials_path = os.environ.get("GOOGLE_ADS_CREDENTIALS", default_path)
+  
+  # If credentials file doesn't exist, try to create it from env vars
   if not os.path.isfile(credentials_path):
-    raise FileNotFoundError(
-        "Google Ads credentials YAML file is not found. "
-        "Check [GOOGLE_ADS_CREDENTIALS] config."
-    )
+    # Check if credentials are provided as YAML string in env var
+    google_ads_yaml_content = os.environ.get("GOOGLE_ADS_YAML")
+    if google_ads_yaml_content:
+      # Create the credentials file from environment variable
+      os.makedirs(os.path.dirname(credentials_path) or ".", exist_ok=True)
+      with open(credentials_path, "w", encoding="utf-8") as f:
+        f.write(google_ads_yaml_content)
+    else:
+      raise FileNotFoundError(
+          "Google Ads credentials YAML file is not found. "
+          "Check [GOOGLE_ADS_CREDENTIALS] config or set [GOOGLE_ADS_YAML] "
+          "environment variable with the YAML content."
+      )
 
   if access_token:
     credentials = Credentials(access_token)

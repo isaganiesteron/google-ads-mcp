@@ -1,0 +1,11 @@
+# This file is generated for Render compatibility
+# Render can use uv.lock, but requirements.txt provides fallback
+# To generate: uv pip compile pyproject.toml -o requirements.txt
+
+fastmcp>=2.12.3
+google-ads==28.2.0
+httpx[http2]>=0.28.1
+mcp>=1.14.1
+pyyaml>=6.0.2
+python-dotenv>=1.0.0
+
