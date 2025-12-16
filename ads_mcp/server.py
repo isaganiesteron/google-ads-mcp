@@ -49,8 +49,8 @@ def main():
   asyncio.run(update_views_yaml())  # Check and update docs resource
   api.get_ads_client()  # Check Google Ads credentials
   print("mcp server starting...")
-  # Allow transport to be configured via environment variable, default to streamable-http
-  transport = os.getenv("MCP_TRANSPORT", "streamable-http")
+  # Allow transport to be configured via environment variable, default to SSE
+  transport = os.getenv("MCP_TRANSPORT", "sse")
   host = os.getenv("MCP_HOST", "0.0.0.0")
   # Render provides PORT, fallback to MCP_PORT for local development
   port = int(os.getenv("PORT", os.getenv("MCP_PORT", "8000")))

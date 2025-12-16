@@ -13,20 +13,24 @@ This guide will help you deploy the Google Ads MCP server to Render.
 ### Option 1: Using render.yaml (Recommended)
 
 1. **Connect your repository to Render:**
+
    - Go to Render Dashboard → New → Web Service
    - Connect your Git repository
    - Render will automatically detect `render.yaml`
 
 2. **Set Environment Variables in Render Dashboard:**
+
    - Go to your service → Environment
    - Add the following environment variables:
 
    **Required:**
+
    - `GOOGLE_ADS_YAML`: Paste the entire contents of your `google-ads.yaml` file here
      (This will be automatically written to a file at startup)
 
    **Optional:**
-   - `MCP_TRANSPORT`: `streamable-http` (default)
+
+   - `MCP_TRANSPORT`: `sse` (default)
    - `MCP_HOST`: `0.0.0.0` (default)
    - `FASTMCP_SERVER_BASE_URL`: Your Render service URL (e.g., `https://your-service.onrender.com`)
 
@@ -36,10 +40,12 @@ This guide will help you deploy the Google Ads MCP server to Render.
 ### Option 2: Manual Configuration
 
 1. **Create a new Web Service:**
+
    - Go to Render Dashboard → New → Web Service
    - Connect your Git repository
 
 2. **Configure Build Settings:**
+
    - **Runtime**: Python 3.12
    - **Build Command**: `uv pip sync`
    - **Start Command**: `uv run -m ads_mcp.server`
@@ -58,13 +64,13 @@ This guide will help you deploy the Google Ads MCP server to Render.
   client_secret: "your-client-secret"
   refresh_token: "your-refresh-token"
   developer_token: "your-developer-token"
-  login_customer_id: "1234567890"  # Optional
+  login_customer_id: "1234567890" # Optional
   ```
 
 ### Optional
 
 - `GOOGLE_ADS_CREDENTIALS`: Path to credentials file (if you upload it separately)
-- `MCP_TRANSPORT`: Transport type (`streamable-http` is default)
+- `MCP_TRANSPORT`: Transport type (`sse` is default)
 - `MCP_HOST`: Host to bind to (`0.0.0.0` is default)
 - `PORT`: Automatically set by Render (don't override)
 - `FASTMCP_SERVER_BASE_URL`: Your Render service URL for OAuth callbacks
@@ -72,7 +78,8 @@ This guide will help you deploy the Google Ads MCP server to Render.
 ## Accessing Your Server
 
 Once deployed, your server will be available at:
-- `https://your-service-name.onrender.com/mcp`
+
+- `https://your-service-name.onrender.com/sse`
 
 Use this URL in TypingMind or other MCP clients.
 
@@ -93,8 +100,8 @@ Use this URL in TypingMind or other MCP clients.
 ### Connection Issues
 
 - Verify the service is running (check status in Render dashboard)
-- Test the endpoint: `curl https://your-service.onrender.com/mcp`
-- Check that `MCP_TRANSPORT` is set to `streamable-http`
+- Test the endpoint: `curl https://your-service.onrender.com/sse`
+- Check that `MCP_TRANSPORT` is set to `sse`
 
 ## Security Notes
 
@@ -102,4 +109,3 @@ Use this URL in TypingMind or other MCP clients.
 - Always use Render's environment variables for sensitive data
 - Consider using Render's secret management features
 - The `GOOGLE_ADS_YAML` variable should be marked as "Secret" in Render
-
