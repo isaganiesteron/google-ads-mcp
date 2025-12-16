@@ -15,6 +15,7 @@
 """The server for the Google Ads API MCP."""
 import asyncio
 import os
+import uuid
 
 from ads_mcp.coordinator import mcp_server
 from ads_mcp.scripts.generate_views import update_views_yaml
@@ -24,6 +25,8 @@ from ads_mcp.tools import docs
 import dotenv
 from fastmcp.server.auth.providers.google import GoogleProvider
 from fastmcp.server.auth.providers.google import GoogleTokenVerifier
+from starlette.requests import Request
+from starlette.responses import StreamingResponse
 
 
 dotenv.load_dotenv()
@@ -41,6 +44,29 @@ if os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID") and os.getenv(
   mcp_server.auth = GoogleProvider(
       base_url=base_url,
       required_scopes=["https://www.googleapis.com/auth/adwords"],
+  )
+
+
+# Add POST handler for /sse endpoint (for TypingMind compatibility)
+@mcp_server.custom_route("/sse", methods=["POST"])
+async def handle_sse_post(request: Request) -> StreamingResponse:
+  """Handle POST requests to /sse endpoint (TypingMind compatibility)."""
+  # Generate session ID
+  session_id = str(uuid.uuid4()).replace("-", "")
+  # Return the messages endpoint URL (same as GET /sse)
+  messages_url = f"/messages/?session_id={session_id}"
+
+  async def event_stream():
+    yield f"event: endpoint\n"
+    yield f"data: {messages_url}\n\n"
+
+  return StreamingResponse(
+      event_stream(),
+      media_type="text/event-stream",
+      headers={
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+      },
   )
 
 
