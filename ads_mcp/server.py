@@ -14,7 +14,9 @@
 
 """The server for the Google Ads API MCP."""
 import asyncio
+import json
 import os
+import threading
 import uuid
 
 from ads_mcp.coordinator import mcp_server
@@ -48,31 +50,79 @@ if os.getenv("FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID") and os.getenv(
 
 
 # Add POST handler for /sse endpoint (for TypingMind compatibility)
+# CHANGELOG: Updated to process initialize requests directly instead of returning endpoint URL
+# This matches TypingMind's expected behavior where POST /sse should handle initialize
 @mcp_server.custom_route("/sse", methods=["POST"])
 async def handle_sse_post(request: Request) -> StreamingResponse:
   """Handle POST requests to /sse endpoint (TypingMind compatibility)."""
+  # Read the request body
+  try:
+    body = await request.json()
+  except:
+    body = {}
+
   # Generate session ID
   session_id = str(uuid.uuid4()).replace("-", "")
-  # Return the messages endpoint URL (same as GET /sse)
-  messages_url = f"/messages/?session_id={session_id}"
 
-  async def event_stream():
-    yield f"event: endpoint\n"
-    yield f"data: {messages_url}\n\n"
+  # If it's an initialize request, process it and return response
+  if body.get("method") == "initialize":
+    # Create initialize response matching FastMCP format
+    init_response = {
+        "jsonrpc": "2.0",
+        "id": body.get("id"),
+        "result": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "experimental": {},
+                "prompts": {"listChanged": True},
+                "resources": {"subscribe": False, "listChanged": True},
+                "tools": {"listChanged": True},
+            },
+            "serverInfo": {
+                "name": "Google Ads API",
+                "version": "2.13.0.2",
+            },
+        },
+    }
 
-  return StreamingResponse(
-      event_stream(),
-      media_type="text/event-stream",
-      headers={
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "Content-Type, mcp-session-id, mcp-protocol-version",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Expose-Headers": "mcp-session-id",
-          "Access-Control-Max-Age": "86400",
-      },
-  )
+    async def event_stream():
+      yield f"event: message\n"
+      yield f"data: {json.dumps(init_response)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type, mcp-session-id, mcp-protocol-version",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Expose-Headers": "mcp-session-id",
+            "Access-Control-Max-Age": "86400",
+        },
+    )
+  else:
+    # Fallback: return endpoint URL (original behavior)
+    messages_url = f"/messages/?session_id={session_id}"
+
+    async def event_stream():
+      yield f"event: endpoint\n"
+      yield f"data: {messages_url}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type, mcp-session-id, mcp-protocol-version",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Expose-Headers": "mcp-session-id",
+            "Access-Control-Max-Age": "86400",
+        },
+    )
 
 
 # Add OPTIONS handler for CORS preflight requests
@@ -93,14 +143,39 @@ async def handle_sse_options() -> Response:
 
 def main():
   """Initializes and runs the MCP server."""
-  asyncio.run(update_views_yaml())  # Check and update docs resource
-  api.get_ads_client()  # Check Google Ads credentials
-  print("mcp server starting...")
   # Allow transport to be configured via environment variable, default to SSE
   transport = os.getenv("MCP_TRANSPORT", "sse")
   host = os.getenv("MCP_HOST", "0.0.0.0")
   # Render provides PORT, fallback to MCP_PORT for local development
   port = int(os.getenv("PORT", os.getenv("MCP_PORT", "8000")))
+
+  # Initialize in background to avoid blocking server startup
+  # This allows the server to bind to the port quickly for Render's port scanner
+  async def initialize_background():
+    """Initialize views and credentials in the background."""
+    try:
+      print("Updating views YAML...")
+      await update_views_yaml()
+      print("Views YAML updated successfully")
+    except Exception as e:
+      print(f"Warning: Failed to update views YAML: {e}")
+      print("Server will continue, but some features may be limited")
+
+    try:
+      print("Checking Google Ads credentials...")
+      api.get_ads_client()
+      print("Google Ads credentials verified")
+    except Exception as e:
+      print(f"Warning: Failed to verify Google Ads credentials: {e}")
+      print("Server will start, but API calls will fail until credentials are configured")
+
+  # Start initialization in background
+  import threading
+  init_thread = threading.Thread(target=lambda: asyncio.run(initialize_background()), daemon=True)
+  init_thread.start()
+
+  print("mcp server starting...")
+  print(f"Binding to {host}:{port} with transport: {transport}")
   mcp_server.run(transport=transport, host=host, port=port)  # Initialize and run the server
 
 
