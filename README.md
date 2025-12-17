@@ -52,22 +52,22 @@ Update your Gemini configuration to include the `google-ads-mcp` server. The fol
 ```json5
 {
   // Other configs...
-  "mcpServers": {
-    "GoogleAds": {
-      "command": "pipx",
-      "args": [
+  mcpServers: {
+    GoogleAds: {
+      command: "pipx",
+      args: [
         "run",
         "--spec",
         "git+https://github.com/google-marketing-solutions/google_ads_mcp.git",
-        "run-mcp-server"
+        "run-mcp-server",
       ],
-      "env": {
-        "GOOGLE_ADS_CREDENTIALS": "PATH_TO_YAML"
+      env: {
+        GOOGLE_ADS_CREDENTIALS: "PATH_TO_YAML",
       },
-      "timeout": 30000,
-      "trust": false
-    }
-  }
+      timeout: 30000,
+      trust: false,
+    },
+  },
 }
 ```
 
@@ -80,21 +80,15 @@ Update your Gemini configuration to include the `google-ads-mcp` server. `[DIREC
 ```json5
 {
   // Other configs...
-  "mcpServers": {
-    "GoogleAds": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "[DIRECTORY]",
-        "-m",
-        "ads_mcp.server"
-      ],
-      "cwd": "[DIRECTORY]",
-      "timeout": 30000,
-      "trust": false
-    }
-  }
+  mcpServers: {
+    GoogleAds: {
+      command: "uv",
+      args: ["run", "--directory", "[DIRECTORY]", "-m", "ads_mcp.server"],
+      cwd: "[DIRECTORY]",
+      timeout: 30000,
+      trust: false,
+    },
+  },
 }
 ```
 
@@ -115,6 +109,57 @@ uv run -m ads_mcp.server
 ```
 
 The server will start and be ready to accept requests.
+
+## Fork Notes (Contractor Scale)
+
+This repository is a fork of the original
+[`google-ads-mcp`](https://github.com/google-marketing-solutions/google_ads_mcp)
+project. It keeps the same core functionality while adding a few
+deployment- and client-specific enhancements for use at Contractor Scale and
+for integration with TypingMind and other MCP clients.
+
+### Additional Features in This Fork
+
+- **SSE transport as default**
+  The server now defaults to the `sse` transport, configurable via the
+  `MCP_TRANSPORT` environment variable. This is intended to work well with
+  MCP clients that expect an SSE endpoint, including TypingMind.
+
+- **Custom `/sse` POST handler for MCP clients**
+  A custom POST route is added at `/sse` to improve compatibility with MCP
+  clients that send `POST` requests (rather than `GET`) when establishing an
+  SSE connection. The handler:
+
+  - Accepts JSON-RPC `initialize` requests
+  - Returns the initialize response as an SSE `event: message` with the
+    JSON-RPC payload
+  - Falls back to returning an endpoint URL for non-initialize requests
+
+- **CORS and preflight support**
+  The `/sse` endpoint includes CORS headers and an `OPTIONS` handler so that
+  browser-based MCP clients (such as TypingMind) can connect from a different
+  origin.
+
+- **Render-friendly deployment**
+  This fork adds:
+
+  - `render.yaml` – example Render web service configuration
+  - `requirements.txt` – dependency list for platforms that expect it
+  - `RENDER_DEPLOYMENT.md` – step‑by‑step deployment guide
+  - `CHANGELOG.md` – records of fork-specific changes and how to revert them
+
+- **Cloud credentials from environment variables**
+  In addition to reading `google-ads.yaml` from disk, the server can now
+  create that file at startup from a `GOOGLE_ADS_YAML` environment variable,
+  which is convenient for cloud providers that store secrets as env vars.
+
+- **Non-blocking initialization**
+  Google Ads credential checks and view generation now run in a background
+  thread so the server can bind to its port quickly on platforms like Render
+  that actively scan for open ports during deploys.
+
+These changes are maintained with the goal of staying close to the upstream
+project so that future updates can be merged more easily.
 
 ## Contributing
 
